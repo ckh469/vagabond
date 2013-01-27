@@ -2159,6 +2159,12 @@ config GC2PD_LTE_EUR_OPEN
 	help
 	  Support GC2PD LTE for EUR
 
+config CHARGE_LEVEL
+	bool "Charge level interface"
+	default y
+	help
+	  Allows configuration of ac and usb charging levels
+
 config USER_RESET_DEBUG
 	bool "KOR reset reason debug feature in user version"
 	default n
