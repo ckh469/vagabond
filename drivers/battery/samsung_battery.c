@@ -54,7 +54,8 @@
 int ac_level 		= AC_CHARGE_LEVEL_DEFAULT;    // Set AC default charge level
 int usb_level  		= USB_CHARGE_LEVEL_DEFAULT; // Set USB default charge level
 int wireless_level	= WIRELESS_CHARGE_LEVEL_DEFAULT; // Set wireless default charge level
-
+char charge_info_text[30];
+int charge_info_level;
 
 static char *supply_list[] = {
 	"battery",
@@ -1729,21 +1730,34 @@ charge_ok:
 		info->abstimer_state = false;
 		info->abstimer_active = false;
 		info->recharge_phase = false;
+
+		charge_info_level = 0;		
+		sprintf(charge_info_text, "No charger");
+		printk("POWER_SUPPLY_TYPE_BATTERY\n");
 		break;
 	case POWER_SUPPLY_TYPE_MAINS:
+		charge_info_level = ac_level;
+		sprintf(charge_info_text, "AC Charger");
 		printk("POWER_SUPPLY_TYPE_MAINS, using charge rate %d mA\n", ac_level);
+
 		if (!info->pdata->suspend_chging)
 			wake_lock(&info->charge_wake_lock);
 		battery_charge_control(info, ac_level, ac_level);
 		break;
 	case POWER_SUPPLY_TYPE_USB:
+		charge_info_level = usb_level;
+		sprintf(charge_info_text, "USB Charger");
 		printk("POWER_SUPPLY_TYPE_USB, using charge rate %d mA\n", usb_level);
+
 		if (!info->pdata->suspend_chging)
 			wake_lock(&info->charge_wake_lock);
 		battery_charge_control(info, usb_level, usb_level);
 		break;
 	case POWER_SUPPLY_TYPE_USB_CDP:
+		charge_info_level = ac_level;
+		sprintf(charge_info_text, "USB CDP Charger");
 		printk("POWER_SUPPLY_TYPE_USB_CDP, using charge rate %d mA\n", ac_level);
+
 		if (!info->pdata->suspend_chging)
 			wake_lock(&info->charge_wake_lock);
 		battery_charge_control(info, ac_level, ac_level);
@@ -1757,16 +1771,22 @@ charge_ok:
 		muic_cb_typ = max77693_muic_get_charging_type();
 		switch (muic_cb_typ) {
 		case CABLE_TYPE_AUDIODOCK_MUIC:
+			charge_info_level = ac_level;
+			sprintf(charge_info_text, "Audio dock");
 			printk("CABLE_TYPE_AUDIODOCK_MUIC, using charge rate %d mA\n", ac_level);
+			
 			pr_info("%s: audio dock, %d\n",
 					__func__, DOCK_TYPE_AUDIO_CURR);
 			battery_charge_control(info, ac_level, ac_level);
 			break;
 		case CABLE_TYPE_SMARTDOCK_TA_MUIC:
 		case CABLE_TYPE_SMARTDOCK_MUIC:
-			printk("CABLE_TYPE_SMARTDOCK_MUIC (with host), using charge rate %d mA\n", ac_level);
 			if (info->cable_sub_type == ONLINE_SUB_TYPE_SMART_OTG) {
 				info->cable_type = POWER_SUPPLY_TYPE_USB;
+				charge_info_level = ac_level;
+				sprintf(charge_info_text, "Smart dock (host)");
+				printk("CABLE_TYPE_SMARTDOCK_TA_MUIC (with host), using charge rate %d mA\n", ac_level);
+
 				pr_info("%s: OTG model and change cable type to %d\n",
 					__func__, info->cable_type);
 				pr_info("%s: smart dock ta & host, %d\n",
@@ -1774,6 +1794,10 @@ charge_ok:
 				battery_charge_control(info, ac_level, ac_level);
 			} else {
 				info->cable_type = POWER_SUPPLY_TYPE_MAINS;
+				charge_info_level = ac_level;
+				sprintf(charge_info_text, "Smart dock (no host)");
+				printk("CABLE_TYPE_SMARTDOCK_TA_MUIC (no host), using charge rate %d mA\n", ac_level);
+
 				pr_info("%s: NOTG model and change cable type to %d\n",
 					__func__, info->cable_type);
 				pr_info("%s: smart dock ta & no host, %d\n",
@@ -1782,14 +1806,20 @@ charge_ok:
 			}
 			break;
 		case CABLE_TYPE_SMARTDOCK_USB_MUIC:
+			charge_info_level = ac_level;
+			sprintf(charge_info_text, "Smart dock USB");
 			printk("CABLE_TYPE_SMARTDOCK_USB_MUIC, using charge rate %d mA\n", ac_level);
+			
 			pr_info("%s: smart dock usb(low), %d\n",
 					__func__, DOCK_TYPE_LOW_CURR);
 			info->online_prop = ONLINE_PROP_USB;
 			battery_charge_control(info, ac_level, ac_level);
 			break;
 		default:
-			printk("General dock, using charge rate %d mA\n", ac_level);
+			charge_info_level = ac_level;
+			sprintf(charge_info_text, "Default");
+			printk("Default, using charge rate %d mA\n", ac_level);
+			
 			pr_info("%s: general dock, %d\n",
 					__func__, info->pdata->chg_curr_dock);
 			battery_charge_control(info, ac_level, ac_level);
@@ -1797,7 +1827,10 @@ charge_ok:
 		}
 		break;
 	case POWER_SUPPLY_TYPE_WIRELESS:
-		printk("Boeffla-Kernel: POWER_SUPPLY_TYPE_WIRELESS, using charge rate %d mA\n", wireless_level);
+		charge_info_level = wireless_level;
+		sprintf(charge_info_text, "Wireless charger");		
+		printk("POWER_SUPPLY_TYPE_WIRELESS, using charge rate %d mA\n", wireless_level);
+
 		if (!info->pdata->suspend_chging)
 			wake_lock(&info->charge_wake_lock);
 		battery_charge_control(info, wireless_level, wireless_level);
@@ -2881,6 +2914,10 @@ static struct platform_driver samsung_battery_driver = {
 
 static int __init samsung_battery_init(void)
 {
+	// initialize charge info variables
+	charge_info_level = 0;	
+	sprintf(charge_info_text, "No charger");
+
 	return platform_driver_register(&samsung_battery_driver);
 }
 
